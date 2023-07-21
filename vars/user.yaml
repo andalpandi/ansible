@@ -1,0 +1,7 @@
+  - name: Andal Pandi
+    username: apandi
+    use_sudo: yes
+    shell:  
+      cmd: /bin/bash
+    groups: sysadmin    
+    pub: << SSH Public Key >>
