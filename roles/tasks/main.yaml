@@ -1,0 +1,47 @@
+---
+- include_vars: user.yml
+
+- name: Ensure group sysadmin exists
+  group: name=sysadmin state=present gid=2300
+  
+- name: Add users | create users, shell, home dirs
+  user: name={{ item.username }} shell={{ item.shell }} createhome=yes groups={{ item.groups }} comment='{{ item.name }} created via ansible'
+  with_items: '{{users}}'
+
+- name: Setup | authorized key upload
+  ansible.posix.authorized_key: user={{ item.username }}
+    key="{{ item.pub }}"
+    path='/home/{{ item.username }}/.ssh/authorized_keys'
+    manage_dir=no
+  with_items: '{{users}}'
+
+- name: Adding ansible user for ansible run
+  ansible.posix.authorized_key: user=ansible
+    key='<< SSH Public Key >>'
+    path='/home/ec2-user/.ssh/authorized_keys'
+    manage_dir=no
+
+- name: Sudoers | update sudoers file and validate
+  lineinfile: "dest=/etc/sudoers
+    insertafter=EOF
+    line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
+    regexp='^{{ item.username }} .*'
+    state=present"
+  when: 'item.use_sudo|bool'
+  with_items: '{{users}}'
+
+- name: Sudoers | update sudoers file for ec2-user and jenkins
+  lineinfile: "dest=/etc/sudoers
+    insertafter=EOF
+    line='{{ item }} ALL=(ALL) NOPASSWD: ALL'
+    state=present"
+  with_items:
+    - ec2-user
+    - jenkins
+    
+- name: Change file ownership, group and permissions
+  file:
+    path: /home/ec2-user/.ssh/authorized_keys
+    owner: ec2-user
+    group: ec2-user
+    mode: '0600'
